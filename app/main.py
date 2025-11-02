@@ -4,7 +4,10 @@ import sys
 def main():
 
     sys.stdout.write("$ ")
-    pass
+    userInput = input()
+    commandList = {}
+    if(str(userInput) not in commandList):
+        sys.stdout.write(f'{userInput}: command not found')
 
 
 if __name__ == "__main__":
