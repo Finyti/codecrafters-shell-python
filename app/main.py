@@ -1,6 +1,5 @@
 import sys
 import os
-import subprocess
 
 def inCommandDict(command, commandDict):
     if(type(command) == list): 
@@ -78,31 +77,32 @@ def execute(fullCommand, args):
 
 
 def main():
-    while(True):
-        sys.stdout.write("$ ")
-        commandDict = {'exit': exitFunc,
-                       'echo': echo,
-                       'type': typeOfArgument,
-                       '.': execute}
+    # while(True):
+    #     sys.stdout.write("$ ")
+    #     commandDict = {'exit': exitFunc,
+    #                    'echo': echo,
+    #                    'type': typeOfArgument,
+    #                    '.': execute}
 
-        userInput = input()
-        userInputSplit = userInput.split()
+    #     userInput = input()
+    #     userInputSplit = userInput.split()
     
 
-        # Handles each individual command or exceptions. 
-        # If cases are used because each individual command may have need of different atributes 
+    #     # Handles each individual command or exceptions. 
+    #     # If cases are used because each individual command may have need of different atributes 
 
-        if(not inCommandDict(userInputSplit, commandDict)):
-            if(userInputSplit[0][0] == '.'):
-                commandDict[userInputSplit[0][0]](userInputSplit[0][1:], userInputSplit[1:])
-            else:
-                sys.stdout.write(f'{userInput}: command not found' + '\n')
-        if(userInputSplit[0] == 'exit'):
-            commandDict[userInputSplit[0]](userInputSplit[1:])
-        if(userInputSplit[0] == 'echo'):
-            commandDict[userInputSplit[0]](userInputSplit[1:])
-        if(userInputSplit[0] == 'type'):
-            commandDict[userInputSplit[0]](userInputSplit[1], commandDict)
+    #     if(not inCommandDict(userInputSplit, commandDict)):
+    #         if(userInputSplit[0][0] == '.'):
+    #             commandDict[userInputSplit[0][0]](userInputSplit[0][1:], userInputSplit[1:])
+    #         else:
+    #             sys.stdout.write(f'{userInput}: command not found' + '\n')
+    #     if(userInputSplit[0] == 'exit'):
+    #         commandDict[userInputSplit[0]](userInputSplit[1:])
+    #     if(userInputSplit[0] == 'echo'):
+    #         commandDict[userInputSplit[0]](userInputSplit[1:])
+    #     if(userInputSplit[0] == 'type'):
+    #         commandDict[userInputSplit[0]](userInputSplit[1], commandDict)
+    pass
 
 
 
