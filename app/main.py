@@ -2,12 +2,14 @@ import sys
 
 
 def main():
+    while(True):
+        sys.stdout.write("$ ")
+        commandList = {}
 
-    sys.stdout.write("$ ")
-    userInput = input()
-    commandList = {}
-    if(str(userInput) not in commandList):
-        sys.stdout.write(f'{userInput}: command not found')
+        userInput = input()
+
+        if(str(userInput) not in commandList):
+            sys.stdout.write(f'{userInput}: command not found' + '\n')
 
 
 if __name__ == "__main__":
