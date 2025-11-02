@@ -1,16 +1,21 @@
 import sys
 
 def exitFunc(exitStatus):
-    if(int(exitStatus[0]) not in (0, 1)):
+    if(len(exitStatus) == 0 or int(exitStatus[0]) not in (0, 1)):
         exit(0)
     exit(int(exitStatus[0])) 
+
+def echo(text):
+    print(' '.join(text))
+    return
 
 
 def main():
 
     while(True):
         sys.stdout.write("$ ")
-        commandList = {'exit': exitFunc}
+        commandList = {'exit': exitFunc,
+                       'echo': echo}
 
         userInput = input()
 
