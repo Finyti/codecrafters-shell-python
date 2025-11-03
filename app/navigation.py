@@ -7,7 +7,10 @@ def pwd(currentDirectory):
 
 def cd(newPath, wokingDirectory):
     if('~' in newPath):
-        newPath = os.getenv('HOME')
+        if('/' in newPath):
+            newPath = os.getenv('HOME')+newPath[1:]
+        else:
+            newPath = os.getenv('HOME')
     elif('../' in newPath):
         stepsBack = len(newPath.split('../')) - 1
         wokingDirectoryElements = wokingDirectory.split(os.path.sep)
