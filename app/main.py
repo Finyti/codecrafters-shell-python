@@ -6,21 +6,29 @@ def inCommandDict(command, commandDict):
         return str(command[0]) in commandDict
     return str(command) in commandDict
 
-def InPath(paths, command):
+def GetAllFilePaths(paths, command):
+    validPaths = []
     for path in paths:
         if(not os.path.exists(path)):
             pass
         # Check if file path exist, and then whether or not it is executable
         if(os.path.exists(path+f"/{command}")):
-            return path
-    return ''
+            validPaths.append(path)
+    return validPaths
 
 def isExec(path, command):
     if(os.access(path+f"/{command}", os.X_OK)):
         return True
+    else:
+        return False
 
 
-
+def getExec(paths, command):
+    for path in paths:
+        if(path != ''):
+            if(isExec(path, command)):
+                return (command, path)
+    return None
 
 
 def exitFunc(exitStatus):
@@ -37,7 +45,7 @@ def echo(text):
 
 
 
-def typeOfArgument(command, commandDict):
+def typeOfArgument(command, commandDict={}):
     # Check for builtin functions
     if(inCommandDict(command, commandDict)):
         print(f'{command} is a shell builtin')
@@ -46,16 +54,20 @@ def typeOfArgument(command, commandDict):
     paths=os.environ['PATH'].split(os.pathsep)
     
     # Check if file path exist, and then whether or not it is executable
-    path = InPath(paths, command)
-    if(path != ''):
-        if(isExec(path, command)):
-            print(f'{command} is {path}/{command}')
-            return
+    # validPaths = GetAllFilePaths(paths, command)
+    validExec = getExec(paths, command)
+    if(validExec != None):
+        return (command, validExec[1])
+
     print(f'{command}: not found')
+    return
 
 
 
 def execute(fullCommand, args):
+
+    if(fullCommand[0] == '.'):
+        fullCommand = fullCommand[1:]
     path = ''
     command = ''
 
@@ -67,11 +79,15 @@ def execute(fullCommand, args):
     # if givven only the command
     else:
         command = fullCommand
+        # paths=os.environ['PATH'].split(os.pathsep)
         paths=os.environ['PATH'].split(os.pathsep)
-        path = InPath(paths, command)
-    
+        execValidity = getExec(paths, command)
+        if(execValidity != None):
+            path = execValidity[1]
     if(path != '' and isExec(path, command)):
-        os.system(f'{path}{os.path.sep}{command} {" ".join(args)}')
+        os.system(f'{command} {" ".join(args)}')
+        return True
+    return False
         
     
 
@@ -82,7 +98,7 @@ def main():
         commandDict = {'exit': exitFunc,
                        'echo': echo,
                        'type': typeOfArgument,
-                       '.': execute}
+                       'execute': execute}
 
         userInput = input()
         userInputSplit = userInput.split()
@@ -92,16 +108,17 @@ def main():
         # If cases are used because each individual command may have need of different atributes 
 
         if(not inCommandDict(userInputSplit, commandDict)):
-            if(userInputSplit[0][0] == '.'):
-                commandDict[userInputSplit[0][0]](userInputSplit[0][1:], userInputSplit[1:])
-            else:
+            isExecuted = commandDict['execute'](userInputSplit[0], userInputSplit[1:])
+            if(not isExecuted):
                 sys.stdout.write(f'{userInput}: command not found' + '\n')
         if(userInputSplit[0] == 'exit'):
             commandDict[userInputSplit[0]](userInputSplit[1:])
         if(userInputSplit[0] == 'echo'):
             commandDict[userInputSplit[0]](userInputSplit[1:])
         if(userInputSplit[0] == 'type'):
-            commandDict[userInputSplit[0]](userInputSplit[1], commandDict)
+            typeReturn = commandDict[userInputSplit[0]](userInputSplit[1], commandDict)
+            if(typeReturn != None):
+                print(f'{typeReturn[0]} is {typeReturn[1]}/{typeReturn[0]}')
 
 
 
