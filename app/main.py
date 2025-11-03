@@ -138,7 +138,8 @@ def main():
                        'echo': echo,
                        'type': typeOfArgument,
                        'execute': execute,
-                       'pwd': navigation.pwd}
+                       'pwd': navigation.pwd,
+                       'cd': navigation.cd}
 
         userInput = input()
         userInputSplit = userInput.split()
@@ -159,6 +160,10 @@ def main():
             commandDict[userInputSplit[0]](userInputSplit[1], commandDict)
         if(userInputSplit[0] == 'pwd'):
             commandDict[userInputSplit[0]](wokingDirectory)
+        if(userInputSplit[0] == 'cd'):
+            newPath = commandDict[userInputSplit[0]](userInputSplit[1])
+            if (newPath != None):
+                wokingDirectory = newPath
 
 
 
