@@ -1,5 +1,6 @@
 import sys
 import os
+import navigation
 
 def inCommandDict(command, commandDict):
     if(type(command) == list): 
@@ -129,12 +130,14 @@ def execute(fullCommand, args):
 
 
 def main():
+    wokingDirectory = os.path.abspath()
     while(True):
         sys.stdout.write("$ ")
         commandDict = {'exit': exitFunc,
                        'echo': echo,
                        'type': typeOfArgument,
-                       'execute': execute}
+                       'execute': execute,
+                       'pwd': navigation.pwd}
 
         userInput = input()
         userInputSplit = userInput.split()
@@ -153,6 +156,9 @@ def main():
             commandDict[userInputSplit[0]](userInputSplit[1:])
         if(userInputSplit[0] == 'type'):
             commandDict[userInputSplit[0]](userInputSplit[1], commandDict)
+        if(userInputSplit[0] == 'pwd'):
+            commandDict[userInputSplit[0]](wokingDirectory)
+
 
 
 
