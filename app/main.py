@@ -161,7 +161,10 @@ def main():
         if(userInputSplit[0] == 'pwd'):
             commandDict[userInputSplit[0]](wokingDirectory)
         if(userInputSplit[0] == 'cd'):
-            newPath = commandDict[userInputSplit[0]](userInputSplit[1])
+            if(len(userInputSplit) > 1):
+                newPath = commandDict[userInputSplit[0]](userInputSplit[1], wokingDirectory)
+            else:
+                newPath = os.path.abspath("")
             if (newPath != None):
                 wokingDirectory = newPath
 
