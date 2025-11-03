@@ -1,6 +1,6 @@
 import sys
 import os
-import navigation
+import app.navigation as navigation
 
 def inCommandDict(command, commandDict):
     if(type(command) == list): 
@@ -130,7 +130,8 @@ def execute(fullCommand, args):
 
 
 def main():
-    wokingDirectory = os.path.abspath()
+
+    wokingDirectory = os.path.abspath("")
     while(True):
         sys.stdout.write("$ ")
         commandDict = {'exit': exitFunc,
