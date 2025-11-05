@@ -147,7 +147,20 @@ def formatInput(userInput):
     wordIndex = 0
     singleQuoteMarker = False
     doubleQuoteMarker = False
-    for char in userInput:
+
+    literalIteration = False
+    for index, char in enumerate(userInput):
+
+        if(char == "\\") and not singleQuoteMarker and not doubleQuoteMarker:
+            literalIteration = True
+            continue
+            
+
+        if(literalIteration == True):
+                literalIteration = False
+                formattedInput[wordIndex] = str(formattedInput[wordIndex]) + str(char)
+                continue
+
         if char == "'" and not doubleQuoteMarker:
             singleQuoteMarker = not singleQuoteMarker
             continue
