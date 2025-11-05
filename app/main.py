@@ -121,12 +121,48 @@ def execute(fullCommand, args):
         validExec = getExec(paths, command)
         if(validExec != None):
             path = validExec[1]
+    # First format the string for passing the arguments, then execute the whole command
     if(path != '' and isExec(path, command)):
-        os.system(f'{command} {" ".join(args)}')
+        argsString = ""
+        for arg in args:
+            argsString += f"'{arg}' "
+        os.system(f'{command} {argsString}')
         return True
     return False
         
-    
+
+def formatInput(userInput):
+
+    """
+    Accepts one variable. \n
+    'userInput' - string of user input, that needs to be formatted \n
+
+    Returns a list of arguments of the command. Supports single quotes.
+    """
+
+    # Goes charachter by character
+
+    formattedInput = ['']
+
+    wordIndex = 0
+    singleQuoteMarker = False
+    for char in userInput:
+        if char == "'":
+            singleQuoteMarker = not singleQuoteMarker
+            continue
+        elif singleQuoteMarker:
+            formattedInput[wordIndex] = str(formattedInput[wordIndex]) + str(char)
+            continue
+
+        if char == " " and not singleQuoteMarker:
+            if(formattedInput[-1] != ''):
+                formattedInput.append('')
+                wordIndex += 1
+        else:
+            formattedInput[wordIndex] = str(formattedInput[wordIndex]) + str(char)
+
+
+    return formattedInput
 
 
 def main():
@@ -142,7 +178,7 @@ def main():
                        'cd': navigation.cd}
 
         userInput = input()
-        userInputSplit = userInput.split()
+        userInputSplit = formatInput(userInput)
     
 
         # Handles each individual command or exceptions. 
