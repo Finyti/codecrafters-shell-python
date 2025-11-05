@@ -125,7 +125,7 @@ def execute(fullCommand, args):
     if(path != '' and isExec(path, command)):
         argsString = ""
         for arg in args:
-            argsString += f"'{arg}' "
+            argsString += f'"""{arg}""" '
         os.system(f'{command} {argsString}')
         return True
     return False
@@ -146,15 +146,23 @@ def formatInput(userInput):
 
     wordIndex = 0
     singleQuoteMarker = False
+    doubleQuoteMarker = False
     for char in userInput:
-        if char == "'":
+        if char == "'" and not doubleQuoteMarker:
             singleQuoteMarker = not singleQuoteMarker
             continue
         elif singleQuoteMarker:
             formattedInput[wordIndex] = str(formattedInput[wordIndex]) + str(char)
             continue
 
-        if char == " " and not singleQuoteMarker:
+        if char == '"' and not singleQuoteMarker:
+            doubleQuoteMarker = not doubleQuoteMarker
+            continue
+        elif doubleQuoteMarker:
+            formattedInput[wordIndex] = str(formattedInput[wordIndex]) + str(char)
+            continue
+
+        if char == " " and not singleQuoteMarker and not doubleQuoteMarker:
             if(formattedInput[-1] != ''):
                 formattedInput.append('')
                 wordIndex += 1
