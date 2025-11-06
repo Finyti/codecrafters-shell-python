@@ -105,7 +105,6 @@ def execute(fullCommand, args):
     """
     path = ''
     command = ''
-
     if(fullCommand[0] == '.'):
         fullCommand = fullCommand[1:]
 
@@ -125,7 +124,12 @@ def execute(fullCommand, args):
     if(path != '' and isExec(path, command)):
         argsString = ""
         for arg in args:
-            argsString += f'"""{arg}""" '
+            if('"' in arg):
+                argsString += "'"+arg+"' "
+            elif("'" in arg):
+                argsString += '"'+arg+'" '
+            else:
+                argsString += '"'+arg+'" '
         os.system(f'{command} {argsString}')
         return True
     return False
@@ -151,28 +155,43 @@ def formatInput(userInput):
     literalIteration = False
     for index, char in enumerate(userInput):
 
+        if(literalIteration == True):
+                literalIteration = False
+                formattedInput[wordIndex] = str(formattedInput[wordIndex]) + f'''{char}'''
+                continue
+        
         if(char == "\\") and not singleQuoteMarker and not doubleQuoteMarker:
             literalIteration = True
             continue
-            
 
-        if(literalIteration == True):
-                literalIteration = False
-                formattedInput[wordIndex] = str(formattedInput[wordIndex]) + str(char)
-                continue
+        elif(char == "\\" and doubleQuoteMarker):
+            try:
+                if(userInput[index+1] == '"' or userInput[index+1] == '\\'):
+                    literalIteration = True
+                    continue
+                else:
+                    formattedInput[wordIndex] = str(formattedInput[wordIndex]) + "\\"
+            except:
+                pass
+            continue
+        elif(char == "\\" and singleQuoteMarker):
+            formattedInput[wordIndex] = str(formattedInput[wordIndex]) + "\\"
+            continue
+
+            
 
         if char == "'" and not doubleQuoteMarker:
             singleQuoteMarker = not singleQuoteMarker
             continue
         elif singleQuoteMarker:
-            formattedInput[wordIndex] = str(formattedInput[wordIndex]) + str(char)
+            formattedInput[wordIndex] = str(formattedInput[wordIndex]) + f'''{char}'''
             continue
 
         if char == '"' and not singleQuoteMarker:
             doubleQuoteMarker = not doubleQuoteMarker
             continue
         elif doubleQuoteMarker:
-            formattedInput[wordIndex] = str(formattedInput[wordIndex]) + str(char)
+            formattedInput[wordIndex] = str(formattedInput[wordIndex]) + f'''{char}'''
             continue
 
         if char == " " and not singleQuoteMarker and not doubleQuoteMarker:
@@ -180,9 +199,7 @@ def formatInput(userInput):
                 formattedInput.append('')
                 wordIndex += 1
         else:
-            formattedInput[wordIndex] = str(formattedInput[wordIndex]) + str(char)
-
-
+            formattedInput[wordIndex] = str(formattedInput[wordIndex]) + f'''{char}'''
     return formattedInput
 
 
@@ -200,7 +217,7 @@ def main():
 
         userInput = input()
         userInputSplit = formatInput(userInput)
-    
+
 
         # Handles each individual command or exceptions. 
         # If cases are used because each individual command may have need of different atributes 
