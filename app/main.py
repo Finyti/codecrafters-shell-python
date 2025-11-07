@@ -1,6 +1,7 @@
 import sys
 import os
 import app.navigation as navigation
+import app.formatting as formatting
 
 def inCommandDict(command, commandDict):
     if(type(command) == list): 
@@ -120,7 +121,7 @@ def execute(fullCommand, args):
         validExec = getExec(paths, command)
         if(validExec != None):
             path = validExec[1]
-    # First format the string for passing the arguments, then execute the whole command
+    # First format the string (quotes compatability) for passing the command and the arguments, then execute the whole command
     if(path != '' and isExec(path, command)):
         argsString = ""
         for arg in args:
@@ -130,77 +131,16 @@ def execute(fullCommand, args):
                 argsString += '"'+arg+'" '
             else:
                 argsString += '"'+arg+'" '
-        os.system(f'{command} {argsString}')
+        if('"' in command):
+            command = "'"+command+"'"
+        elif("'" in command):
+            command = '"'+command+'"'
+        else:
+            command = '"'+command+'"'
+        os.system(command + " " + argsString)
         return True
     return False
         
-
-def formatInput(userInput):
-
-    """
-    Accepts one variable. \n
-    'userInput' - string of user input, that needs to be formatted \n
-
-    Returns a list of arguments of the command. Supports single quotes.
-    """
-
-    # Goes charachter by character
-
-    formattedInput = ['']
-
-    wordIndex = 0
-    singleQuoteMarker = False
-    doubleQuoteMarker = False
-
-    literalIteration = False
-    for index, char in enumerate(userInput):
-
-        if(literalIteration == True):
-                literalIteration = False
-                formattedInput[wordIndex] = str(formattedInput[wordIndex]) + f'''{char}'''
-                continue
-        
-        if(char == "\\") and not singleQuoteMarker and not doubleQuoteMarker:
-            literalIteration = True
-            continue
-
-        elif(char == "\\" and doubleQuoteMarker):
-            try:
-                if(userInput[index+1] == '"' or userInput[index+1] == '\\'):
-                    literalIteration = True
-                    continue
-                else:
-                    formattedInput[wordIndex] = str(formattedInput[wordIndex]) + "\\"
-            except:
-                pass
-            continue
-        elif(char == "\\" and singleQuoteMarker):
-            formattedInput[wordIndex] = str(formattedInput[wordIndex]) + "\\"
-            continue
-
-            
-
-        if char == "'" and not doubleQuoteMarker:
-            singleQuoteMarker = not singleQuoteMarker
-            continue
-        elif singleQuoteMarker:
-            formattedInput[wordIndex] = str(formattedInput[wordIndex]) + f'''{char}'''
-            continue
-
-        if char == '"' and not singleQuoteMarker:
-            doubleQuoteMarker = not doubleQuoteMarker
-            continue
-        elif doubleQuoteMarker:
-            formattedInput[wordIndex] = str(formattedInput[wordIndex]) + f'''{char}'''
-            continue
-
-        if char == " " and not singleQuoteMarker and not doubleQuoteMarker:
-            if(formattedInput[-1] != ''):
-                formattedInput.append('')
-                wordIndex += 1
-        else:
-            formattedInput[wordIndex] = str(formattedInput[wordIndex]) + f'''{char}'''
-    return formattedInput
 
 
 def main():
@@ -216,7 +156,7 @@ def main():
                        'cd': navigation.cd}
 
         userInput = input()
-        userInputSplit = formatInput(userInput)
+        userInputSplit = formatting.formatInput(userInput)
 
 
         # Handles each individual command or exceptions. 
