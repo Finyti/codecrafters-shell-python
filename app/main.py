@@ -93,6 +93,8 @@ class Shell:
             try:
                 if(os.path.exists(file)):
                     with open(file, "a") as f:
+                        if(output[-1] == '\n'):
+                            output = output[:-1]
                         if(os.path.getsize(file) == 0):
                             f.write(str(output))
                         else:
