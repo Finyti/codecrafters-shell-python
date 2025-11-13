@@ -21,11 +21,13 @@ class Shell:
             'pwd': navigation.NavigationModule.pwd,
             'cd': navigation.NavigationModule.cd}
         
-        self.commandModificatorsDict = {'1>': self.redirect}
+        self.commandModificatorsDict = {'1>': self.redirect,
+                                        '2>': self.redirect}
 
         self.outputList = []
         self.errList = []
-        self.redirectFlag = False
+        self.outRedirectFlag = False
+        self.errRedirectFlag = False
 
         
 
@@ -159,6 +161,8 @@ class Shell:
 
             elif(executableAndArgs[0] == '1>'):
                 self.redirect(self.outputList[0], executableAndArgs[1])
+            elif(executableAndArgs[0] == '2>'):
+                self.redirect(self.errList[0], executableAndArgs[1])
 
 
             else:
@@ -168,13 +172,13 @@ class Shell:
                 stderr = output.stderr.decode("utf-8")
                 self.addStdFeedback(stdout, stderr)
 
-            if(not self.redirectFlag):
-               self.printStdOut()
+        if(not self.outRedirectFlag):
+            self.printStdOut()
 
     def addStdFeedback(self, output, err):
         # if(output!=''):
         #     print(output)
-        if(err!=''):
+        if(err!='' and not self.errRedirectFlag):
             if(err[-1] != '\n'):
                 sys.stdout.write(err + '\n')
             else:
@@ -209,11 +213,14 @@ class Shell:
                 continue
 
             userInputSplit = formatting.formatInput(userInput)
-            self.redirectFlag = False
+            self.outRedirectFlag = False
+            self.errRedirectFlag = False
             self.outputList = []
             self.errList = []
             if('1>' in userInputSplit):
-                self.redirectFlag = True
+                self.outRedirectFlag = True
+            if('2>' in userInputSplit):
+                self.errRedirectFlag = True
             executeOutput = self.execute(userInputSplit)
 
 
