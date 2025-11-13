@@ -22,7 +22,9 @@ class Shell:
             'cd': navigation.NavigationModule.cd}
         
         self.commandModificatorsDict = {'1>': self.redirect,
-                                        '2>': self.redirect}
+                                        '2>': self.redirect,
+                                        '1>>': self.append,
+                                        '2>>': self.append}
 
         self.outputList = []
         self.errList = []
@@ -80,7 +82,23 @@ class Shell:
                     with open(file, "w") as f:
                         f.write(str(output))
                 else:
-                    with open(file, "x+") as f:
+                    with open(file, 'x+') as f:
+                        f.write(str(output))
+            except:
+                print("Can't access directory: "+file)
+
+    
+    def append(self, output, files):
+        for file in files:
+            try:
+                if(os.path.exists(file)):
+                    with open(file, "a") as f:
+                        if(os.path.getsize(file) == 0):
+                            f.write(str(output))
+                        else:
+                            f.write(str('\n' + output))
+                else:
+                    with open(file, "a+") as f:
                         f.write(str(output))
             except:
                 print("Can't access directory: "+file)
@@ -161,8 +179,13 @@ class Shell:
 
             elif(executableAndArgs[0] == '1>'):
                 self.redirect(self.outputList[0], executableAndArgs[1])
+            elif(executableAndArgs[0] == '1>>'):
+                self.append(self.outputList[0], executableAndArgs[1])
             elif(executableAndArgs[0] == '2>'):
                 self.redirect(self.errList[0], executableAndArgs[1])
+            elif(executableAndArgs[0] == '2>>'):
+                self.append(self.errList[0], executableAndArgs[1])
+                
 
 
             else:
@@ -195,7 +218,7 @@ class Shell:
                 return
             if(index == len(self.outputList)-1 and output[-1] == '\n'):
                 sys.stdout.write(output[0:-1])
-            elif(index != len(self.outputList)-1 and output[-1] != '\n'):
+            elif(index < len(self.outputList)-1 and output[-1] != '\n'):
                 sys.stdout.write(output + '\n')
             else:
                 sys.stdout.write(output)
@@ -217,9 +240,9 @@ class Shell:
             self.errRedirectFlag = False
             self.outputList = []
             self.errList = []
-            if('1>' in userInputSplit):
+            if('1>' in userInputSplit  or '1>>' in userInputSplit):
                 self.outRedirectFlag = True
-            if('2>' in userInputSplit):
+            if('2>' in userInputSplit or '2>>' in userInputSplit):
                 self.errRedirectFlag = True
             executeOutput = self.execute(userInputSplit)
 

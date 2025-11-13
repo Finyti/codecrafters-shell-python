@@ -70,7 +70,7 @@ def formatInput(userInput):
 
         if(char == ">" and not singleQuoteMarker and not doubleQuoteMarker):
             if(index-1>=0):
-                if(userInput[index-1] not in '123456789'):
+                if(userInput[index-1] not in '123456789>'):
                     formattedInput[wordIndex] = str(formattedInput[wordIndex]) + "1"
 
         # Starts new argument
