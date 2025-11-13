@@ -1,191 +1,223 @@
 import sys
 import os
+import subprocess
+
 import app.navigation as navigation
 import app.formatting as formatting
+import app.helpers as helpers
 
-def inCommandDict(command, commandDict):
-    if(type(command) == list): 
-        return str(command[0]) in commandDict
-    return str(command) in commandDict
+# Current to-do: Fix navigation. It cuts slashes when that doesn't needed.
+# After redirections implemented refactor. Make a visual diagram of the app
 
+class Shell:
 
-def exitFunc(exitStatus):
-    if(len(exitStatus) == 0 or int(exitStatus[0]) not in (0, 1)):
-        exit(0)
-    exit(int(exitStatus[0])) 
+    def __init__(self):
+        self.workingDirectory = os.path.abspath("")
 
-def echo(text):
-    print(' '.join(text))
-    return
+        self.commandDict = {'exit': self.exitFunc,
+            'echo': self.echo,
+            'type': self.typeOfArgument,
+            'execute': self.execute,
+            'pwd': navigation.NavigationModule.pwd,
+            'cd': navigation.NavigationModule.cd}
+        
+        self.commandModificatorsDict = {'1>': self.redirect}
 
+        self.outputList = []
+        self.errList = []
+        self.redirectFlag = False
 
-def GetAllFilePaths(paths, file):
-    """
-    Accepts two variables. \n
-    paths - list of sysytem paths \n
-    file - file to search in sysytem paths \n
-
-    Returns a List of all paths where a file was found
-    """
-    validPaths = []
-    for path in paths:
-        if(not os.path.exists(path)):
-            pass
-        # Check if file path exist, and then whether or not it is executable
-        if(os.path.exists(path+f"/{file}")):
-            validPaths.append(path)
-    return validPaths
-
-def isExec(path, command):
-    """
-    Accepts two variables. \n
-    path - a sysytem path \n
-    command - command to search in sysytem path \n
-
-    Returns a True if command exist and is executable by provided path \n
-    or False otherwise
-    """
-    if(os.access(path+f"/{command}", os.X_OK)):
-        return True
-    else:
-        return False
-
-
-def getExec(paths, exec):
-    """
-    Accepts two variables. \n
-    'paths' - list of sysytem paths \n
-    'exec' - command to search in sysytem paths \n \n
-
-    If exec exists returns a touple with [0] being 'exec' name and [1] being valid path \n
-    or None otherwise
-    """
-    for path in paths:
-        if(path != ''):
-            if(isExec(path, exec)):
-                return (exec, path)
-    return None
-
-
-
-
-def typeOfArgument(command, commandDict):
-    """
-    Accepts two variables. \n
-    'command' - command to check \n
-    'commandDict' - Dictionary with all builtin commands \n \n
-
-    If command is an executable, returns a touple with [0] being 'command' name and [1] being valid path \n
-    or None in any other case
-    """
-    # Check if command is a builtin functions
-    if(inCommandDict(command, commandDict)):
-        print(f'{command} is a shell builtin')
-        return
-    
-    # If not builtin, check if command is a an executable accesible in any of the locations in PATH
-    paths=os.environ['PATH'].split(os.pathsep)
-    validExec = getExec(paths, command)
-    if(validExec != None):
-        print(f'{command} is {validExec[1]}/{command}')
-        return (command, validExec[1])
-
-    print(f'{command}: not found')
-    return
-
-
-
-def execute(fullCommand, args):
-    """
-    Accepts two variables. \n
-    'fullCommand' - string of user input, may contain full execx path, or just the name \n
-    'args' - List of arguments to be passed when executing the command \n \n
-
-    If command is an executable, executes it with given arguments
-    Returns True if execution happened, False otherwise
-    """
-    path = ''
-    command = ''
-    if(fullCommand[0] == '.'):
-        fullCommand = fullCommand[1:]
-
-    # if givven command preceeded by full path
-    if(os.path.sep in fullCommand):
-        path = fullCommand.split(os.path.sep)[:-1]
-        path = os.path.sep.join(path)
-        command = fullCommand.split(os.path.sep)[-1]
-    # if givven only the command name
-    else:
-        command = fullCommand
-        paths=os.environ['PATH'].split(os.pathsep)
-        validExec = getExec(paths, command)
-        if(validExec != None):
-            path = validExec[1]
-    # First format the string (quotes compatability) for passing the command and the arguments, then execute the whole command
-    if(path != '' and isExec(path, command)):
-        argsString = ""
-        for arg in args:
-            if('"' in arg):
-                argsString += "'"+arg+"' "
-            elif("'" in arg):
-                argsString += '"'+arg+'" '
-            else:
-                argsString += '"'+arg+'" '
-        if('"' in command):
-            command = "'"+command+"'"
-        elif("'" in command):
-            command = '"'+command+'"'
-        else:
-            command = '"'+command+'"'
-        os.system(command + " " + argsString)
-        return True
-    return False
         
 
 
-def main():
+    def exitFunc(self, exitStatus):
+        if(len(exitStatus) == 0 or int(exitStatus[0]) not in (0, 1)):
+            exit(0)
+        exit(int(exitStatus[0])) 
 
-    wokingDirectory = os.path.abspath("")
-    while(True):
-        sys.stdout.write("$ ")
-        commandDict = {'exit': exitFunc,
-                       'echo': echo,
-                       'type': typeOfArgument,
-                       'execute': execute,
-                       'pwd': navigation.pwd,
-                       'cd': navigation.cd}
+    def echo(self, text):
+        self.addStdFeedback(' '.join(text), "")
+        return
 
-        userInput = input()
-        userInputSplit = formatting.formatInput(userInput)
+    def typeOfArgument(self, commands):
+        """
+        Accepts two variables. \n
+        'command' - command to check \n
+        'commandDict' - Dictionary with all builtin commands \n \n
+
+        If command is an executable, returns a touple with [0] being 'command' name and [1] being valid path \n
+        or None in any other case
+        """
+        # Check if command is a builtin functions
+        for command in commands:
+            if(helpers.inCommandDict(command, self.commandDict)):
+                # print(f'{command} is a shell builtin')
+                self.addStdFeedback(f'{command} is a shell builtin', "")
+                continue
+            
+            # If not builtin, check if command is a an executable accesible in any of the locations in PATH
+            validExec = helpers.getExec(command)
+            if(validExec != None):
+                # print(f'{command} is {validExec[1]}/{command}')
+                self.addStdFeedback(f'{command} is {validExec[1]}/{command}', "")
+                continue
+            
+            self.addStdFeedback("", f'{command}: not found')
 
 
-        # Handles each individual command or exceptions. 
-        # If cases are used because each individual command may have need of different atributes 
 
-        if(not inCommandDict(userInputSplit, commandDict)):
-            isExecuted = commandDict['execute'](userInputSplit[0], userInputSplit[1:])
-            if(not isExecuted):
-                sys.stdout.write(f'{userInput}: command not found' + '\n')
-        if(userInputSplit[0] == 'exit'):
-            commandDict[userInputSplit[0]](userInputSplit[1:])
-        if(userInputSplit[0] == 'echo'):
-            commandDict[userInputSplit[0]](userInputSplit[1:])
-        if(userInputSplit[0] == 'type'):
-            commandDict[userInputSplit[0]](userInputSplit[1], commandDict)
-        if(userInputSplit[0] == 'pwd'):
-            commandDict[userInputSplit[0]](wokingDirectory)
-        if(userInputSplit[0] == 'cd'):
-            if(len(userInputSplit) > 1):
-                newPath = commandDict[userInputSplit[0]](userInputSplit[1], wokingDirectory)
+
+
+    #  --------------------------------------------------
+
+
+    def redirect(self, output, files):
+        for file in files:
+            try:
+                if(os.path.exists(file)):
+                    with open(file, "w") as f:
+                        f.write(str(output))
+                else:
+                    with open(file, "x+") as f:
+                        f.write(str(output))
+            except:
+                print("Can't access directory: "+file)
+
+
+    # Need to create a new type of commands "command odificators"
+    # To allow echo to treat all executables as text yet allow redirection
+    def executePrep(self, fullCommand):
+
+        untrimedExecutable = fullCommand[0]
+        args = fullCommand[1:]
+        path = ''
+        command = ''
+        if(untrimedExecutable[0] == '.'):
+            untrimedExecutable = untrimedExecutable[1:]
+
+        # if givven command preceeded by full path
+        if(os.path.sep in untrimedExecutable):
+            path = untrimedExecutable.split(os.path.sep)[:-1]
+            path = os.path.sep.join(path)
+            command = untrimedExecutable.split(os.path.sep)[-1]
+        # if givven only the command name
+        else:
+            command = untrimedExecutable
+            validExec = helpers.getExec(command)
+            if(validExec != None):
+                path = validExec[1]
+        # First format the string (quotes compatability) for passing the command and the arguments, then execute the whole command
+        if((command in self.commandDict or command in self.commandModificatorsDict)):
+
+            # argsString = ""
+            # for arg in args:
+            #     if('"' in arg):
+            #         argsString += "'"+arg+"' "
+            #     elif("'" in arg):
+            #         argsString += '"'+arg+'" '
+            #     else:
+            #         argsString += '"'+arg+'" '
+            # if('"' in command):
+            #     command = "'"+command+"'"
+            # elif("'" in command):
+            #     command = '"'+command+'"'
+            # else:
+            #     command = '"'+command+'"'
+            argsString = args
+            return command,argsString
+        if(path != '' and helpers.isExec(command, path)):
+            argsString = args
+            return command,argsString
+        else:
+            sys.stdout.write(f'{command}: command not found' + '\n')
+            return ""
+
+    def execute(self, fullCommand):
+        commandList = helpers.separateCommands(fullCommand, self.commandDict, self.commandModificatorsDict)
+
+        for command in commandList:
+            executableAndArgs = self.executePrep(command)
+            if(executableAndArgs == ''):
+                continue
+
+            if(executableAndArgs[0] == 'exit'):
+                self.commandDict[executableAndArgs[0]](executableAndArgs[1])
+
+            elif(executableAndArgs[0] == 'echo'):
+                self.commandDict[executableAndArgs[0]](executableAndArgs[1])
+
+            elif(executableAndArgs[0] == 'type'):
+                self.commandDict[executableAndArgs[0]](executableAndArgs[1])
+
+            elif(executableAndArgs[0] == 'pwd'):
+                self.commandDict[executableAndArgs[0]](self)
+
+            elif(executableAndArgs[0] == 'cd'):
+                if(len(executableAndArgs) > 1):
+                    if(len(executableAndArgs[1]) > 0):
+                        self.commandDict[executableAndArgs[0]](executableAndArgs[1][0], self)
+
+            elif(executableAndArgs[0] == '1>'):
+                self.redirect(self.outputList[0], executableAndArgs[1])
+
+
             else:
-                newPath = os.path.abspath("")
-            if (newPath != None):
-                wokingDirectory = newPath
+                output = subprocess.run(command, capture_output = True)
+
+                stdout = output.stdout.decode("utf-8")
+                stderr = output.stderr.decode("utf-8")
+                self.addStdFeedback(stdout, stderr)
+
+            if(not self.redirectFlag):
+               self.printStdOut()
+
+    def addStdFeedback(self, output, err):
+        # if(output!=''):
+        #     print(output)
+        if(err!=''):
+            if(err[-1] != '\n'):
+                sys.stdout.write(err + '\n')
+            else:
+                sys.stdout.write(err)
+            # (Resets the loop instead of returning to wherever)
+        self.outputList.append(output)
+        self.errList.append(err)
+
+    def printStdOut(self):
+        if(len(self.outputList) == 0):
+            return
+        for index, output in enumerate(self.outputList):
+            if(len(output) == 0):
+                return
+            if(index == len(self.outputList)-1 and output[-1] == '\n'):
+                sys.stdout.write(output[0:-1])
+            elif(index != len(self.outputList)-1 and output[-1] != '\n'):
+                sys.stdout.write(output + '\n')
+            else:
+                sys.stdout.write(output)
+        sys.stdout.write('\n')
+
+
+
+    def main(self):
+        while(True):
+            sys.stdout.write("$ ")
+
+            userInput = input()
+
+            if(userInput == ''):
+                continue
+
+            userInputSplit = formatting.formatInput(userInput)
+            self.redirectFlag = False
+            self.outputList = []
+            self.errList = []
+            if('1>' in userInputSplit):
+                self.redirectFlag = True
+            executeOutput = self.execute(userInputSplit)
 
 
 
 
-
-
-if __name__ == "__main__":
-    main()
+newShell = Shell()
+newShell.main()
