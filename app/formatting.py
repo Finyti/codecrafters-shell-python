@@ -93,7 +93,6 @@ def formatInput(userInput):
             formattedInput.remove('')
 
 
-
     return formattedInput
 
 # ['ls', ' 1>', '/home/leo/Desktop/testls2.txt', ' ', ' ', '']

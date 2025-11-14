@@ -2,10 +2,12 @@ import sys
 import os
 import subprocess
 
+import readline
+
 import app.navigation as navigation
 import app.formatting as formatting
 import app.helpers as helpers
-
+import app.redirection as redirection
 # Current to-do: Fix navigation. It cuts slashes when that doesn't needed.
 # After redirections implemented refactor. Make a visual diagram of the app
 
@@ -13,6 +15,7 @@ class Shell:
 
     def __init__(self):
         self.workingDirectory = os.path.abspath("")
+        self.userInput = ''
 
         self.commandDict = {'exit': self.exitFunc,
             'echo': self.echo,
@@ -21,10 +24,10 @@ class Shell:
             'pwd': navigation.NavigationModule.pwd,
             'cd': navigation.NavigationModule.cd}
         
-        self.commandModificatorsDict = {'1>': self.redirect,
-                                        '2>': self.redirect,
-                                        '1>>': self.append,
-                                        '2>>': self.append}
+        self.commandModificatorsDict = {'1>': redirection.redirect,
+                                        '2>': redirection.redirect,
+                                        '1>>': redirection.append,
+                                        '2>>': redirection.append}
 
         self.outputList = []
         self.errList = []
@@ -75,35 +78,6 @@ class Shell:
     #  --------------------------------------------------
 
 
-    def redirect(self, output, files):
-        for file in files:
-            try:
-                if(os.path.exists(file)):
-                    with open(file, "w") as f:
-                        f.write(str(output))
-                else:
-                    with open(file, 'x+') as f:
-                        f.write(str(output))
-            except:
-                print("Can't access directory: "+file)
-
-    
-    def append(self, output, files):
-        for file in files:
-            try:
-                if(os.path.exists(file)):
-                    with open(file, "a") as f:
-                        if(output[-1] == '\n'):
-                            output = output[:-1]
-                        if(os.path.getsize(file) == 0):
-                            f.write(str(output))
-                        else:
-                            f.write(str('\n' + output))
-                else:
-                    with open(file, "a+") as f:
-                        f.write(str(output))
-            except:
-                print("Can't access directory: "+file)
 
 
     # Need to create a new type of commands "command odificators"
@@ -180,13 +154,13 @@ class Shell:
                         self.commandDict[executableAndArgs[0]](executableAndArgs[1][0], self)
 
             elif(executableAndArgs[0] == '1>'):
-                self.redirect(self.outputList[0], executableAndArgs[1])
+                redirection.redirect(self.outputList[0], executableAndArgs[1])
             elif(executableAndArgs[0] == '1>>'):
-                self.append(self.outputList[0], executableAndArgs[1])
+                redirection.append(self.outputList[0], executableAndArgs[1])
             elif(executableAndArgs[0] == '2>'):
-                self.redirect(self.errList[0], executableAndArgs[1])
+                redirection.redirect(self.errList[0], executableAndArgs[1])
             elif(executableAndArgs[0] == '2>>'):
-                self.append(self.errList[0], executableAndArgs[1])
+                redirection.append(self.errList[0], executableAndArgs[1])
                 
 
 
@@ -226,18 +200,28 @@ class Shell:
                 sys.stdout.write(output)
         sys.stdout.write('\n')
 
+    def complete(self, string, state):
+        const_options = ['echo', 'exit']
+        const_options = [option for option in const_options if string in option]
+        if(string == const_options[state][:-1]):
+            return const_options[state] + ' '
+        else:
+            return None
 
 
     def main(self):
+        readline.parse_and_bind('set editing-mode vi') 
+        readline.set_completer(self.complete)
+        readline.parse_and_bind('bind ^I rl_complete')
         while(True):
-            sys.stdout.write("$ ")
+            self.userInput = ''
 
-            userInput = input()
 
-            if(userInput == ''):
+            self.userInput = input("$ ")
+             
+            if(self.userInput == ''):
                 continue
-
-            userInputSplit = formatting.formatInput(userInput)
+            userInputSplit = formatting.formatInput(self.userInput)
             self.outRedirectFlag = False
             self.errRedirectFlag = False
             self.outputList = []
@@ -250,6 +234,7 @@ class Shell:
 
 
 
+if __name__ == '__main__':
+    newShell = Shell()
+    newShell.main()
 
-newShell = Shell()
-newShell.main()
