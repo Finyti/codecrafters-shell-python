@@ -8,11 +8,10 @@ import app.navigation as navigation
 import app.formatting as formatting
 import app.helpers as helpers
 import app.redirection as redirection
-# Current to-do: Fix navigation. It cuts slashes when that doesn't needed.
-# After redirections implemented refactor. Make a visual diagram of the app
+
 
 class Shell:
-
+    
     def __init__(self):
         self.workingDirectory = os.path.abspath("")
         self.userInput = ''
@@ -35,7 +34,8 @@ class Shell:
         self.errRedirectFlag = False
 
         
-
+   #  --------------------------------------------------
+#    SIMPLE BUILTINS
 
     def exitFunc(self, exitStatus):
         if(len(exitStatus) == 0 or int(exitStatus[0]) not in (0, 1)):
@@ -73,15 +73,9 @@ class Shell:
 
 
 
-
-
     #  --------------------------------------------------
+#    DEALS WITH EXECUTABLES
 
-
-
-
-    # Need to create a new type of commands "command odificators"
-    # To allow echo to treat all executables as text yet allow redirection
     def executePrep(self, fullCommand):
 
         untrimedExecutable = fullCommand[0]
@@ -105,20 +99,6 @@ class Shell:
         # First format the string (quotes compatability) for passing the command and the arguments, then execute the whole command
         if((command in self.commandDict or command in self.commandModificatorsDict)):
 
-            # argsString = ""
-            # for arg in args:
-            #     if('"' in arg):
-            #         argsString += "'"+arg+"' "
-            #     elif("'" in arg):
-            #         argsString += '"'+arg+'" '
-            #     else:
-            #         argsString += '"'+arg+'" '
-            # if('"' in command):
-            #     command = "'"+command+"'"
-            # elif("'" in command):
-            #     command = '"'+command+'"'
-            # else:
-            #     command = '"'+command+'"'
             argsString = args
             return command,argsString
         if(path != '' and helpers.isExec(command, path)):
@@ -174,6 +154,10 @@ class Shell:
         if(not self.outRedirectFlag):
             self.printStdOut()
 
+
+   #  --------------------------------------------------
+#    DEALS WITH OUTPUTS AND ERROR_OUTPUTS
+
     def addStdFeedback(self, output, err):
         # if(output!=''):
         #     print(output)
@@ -200,6 +184,16 @@ class Shell:
                 sys.stdout.write(output)
         sys.stdout.write('\n')
 
+
+
+   #  --------------------------------------------------
+#   AUTOCOMPLETION
+
+    def readlineSet(self):
+        readline.parse_and_bind('set editing-mode vi') 
+        readline.set_completer(self.complete)
+        readline.parse_and_bind('bind ^I rl_complete')
+
     def complete(self, string, state):
         const_options = ['echo', 'exit']
         const_options = [option for option in const_options if string in option]
@@ -207,12 +201,15 @@ class Shell:
             return const_options[state] + ' '
         else:
             return None
+        
 
+   #  --------------------------------------------------
 
     def main(self):
-        readline.parse_and_bind('set editing-mode vi') 
-        readline.set_completer(self.complete)
-        readline.parse_and_bind('bind ^I rl_complete')
+
+        self.readlineSet()
+
+        # REPL
         while(True):
             self.userInput = ''
 
