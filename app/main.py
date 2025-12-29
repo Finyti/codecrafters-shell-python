@@ -192,7 +192,15 @@ class Shell:
     def readlineSet(self):
         readline.parse_and_bind('set editing-mode vi') 
         readline.set_completer(self.complete)
-        readline.parse_and_bind('bind ^I rl_complete')
+        # readline.parse_and_bind('bind ^I rl_complete')
+        # Detect libedit vs GNU readline
+        doc = readline.__doc__ or ""
+        if "libedit" in doc:
+            # libedit-style binding
+            readline.parse_and_bind("bind ^I rl_complete")
+        else:
+            # GNU readline-style binding
+            readline.parse_and_bind("tab: complete")
 
     def complete(self, string, state):
         const_options = ['echo', 'exit']
