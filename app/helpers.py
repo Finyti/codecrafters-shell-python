@@ -44,6 +44,34 @@ def getExec(executive, paths=os.environ['PATH'].split(os.pathsep)):
                 return (exec, path)
     return None
 
+def getAllExec(paths=None):
+    """
+    Accepts one variable. \n
+    'paths' - list of sysytem paths \n
+
+    Return all execs in path
+    """
+
+    if(paths == None):
+        paths = os.environ['PATH'].split(os.pathsep)
+
+    allExecList = []
+    try:
+        for base in paths:
+            if(not base) or (not os.path.isdir(base)):
+                continue
+            for root, dirs, files in os.walk(base):
+                if(len(files) == 0):
+                    continue
+                for name in files:
+                    file_path = os.path.join(root,name)
+                    if(os.access(file_path,os.X_OK) and os.path.isfile(file_path)):
+                        allExecList.append(name)
+    except:
+        pass
+    return allExecList
+
+
 
 def separateCommands(fullCommand, commandDict, commandModificatorsDict):
     commandArray = []

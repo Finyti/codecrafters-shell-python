@@ -192,6 +192,9 @@ class Shell:
     def readlineSet(self):
         readline.parse_and_bind('set editing-mode vi') 
         readline.set_completer(self.complete)
+        delims = readline.get_completer_delims()
+        delims = delims.replace('-', '')
+        readline.set_completer_delims(delims)
         # readline.parse_and_bind('bind ^I rl_complete')
         # Detect libedit vs GNU readline
         doc = readline.__doc__ or ""
@@ -203,10 +206,20 @@ class Shell:
             readline.parse_and_bind("tab: complete")
 
     def complete(self, string, state):
-        const_options = ['echo', 'exit']
+
+        const_options = list(self.commandDict.keys()) + helpers.getAllExec(os.environ['PATH'].split(os.pathsep))
+        const_options = list(dict.fromkeys(const_options))
+
+        results = []
+        for key in const_options:
+            if string in key:
+                results.append(key)
+        
         const_options = [option for option in const_options if string in option]
         if(string == const_options[state][:-1]):
             return const_options[state] + ' '
+        elif(len(results) == 1):
+            return results[-1] + ' '
         else:
             return None
         
