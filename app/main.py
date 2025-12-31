@@ -246,13 +246,40 @@ class Shell:
         const_options = sorted([option for option in const_options if string in option])
 
         if(state == 0):
+            # in case there is only one autocomplete option
             if(len(results) == 1):
                 self.completeFound = True
+                self.tabCount = 0
                 return results[-1] + ' '
+            # I need to add LCP mechanic. We take a random word and start adding one letter from it to object of our autocomplete, 
+            # checking if all autocomplete options begin with that string. If yes, send the missing letters to our autocomplete
+            # object, without an additional space
+            LCP = True
+            LCP_string = ''
+            temp_string = string
+            for char in const_options[0][len(temp_string):]:
+                temp_string += char
+                for element in results:
+                    if element.startswith(temp_string):
+                        continue
+                    else:
+                        LCP = False
+                        break
+                if(LCP):
+                    LCP_string = temp_string
+            if(len(LCP_string) > len(string)):
+                self.completeFound = True
+                self.tabCount = 0
+                return LCP_string
+                
+
+            # for cases where command is miising only one letter but there are multiple autocomplete options 
             for i in range(len(results)):
                 if(string == results[i][:-1] and len(results[i]) > 2):
                     self.completeFound = True
+                    self.tabCount = 0
                     return results[i] + ' '
+
                 
         const_options = [x for x in const_options if x.startswith(string)]
         if(len(const_options)-1>=state):
