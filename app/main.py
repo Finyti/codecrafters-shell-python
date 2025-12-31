@@ -33,6 +33,10 @@ class Shell:
         self.outRedirectFlag = False
         self.errRedirectFlag = False
 
+        self.completeFound = False
+        self.tabCount = 0
+        self.doubleTabList = []
+
         
    #  --------------------------------------------------
 #    SIMPLE BUILTINS
@@ -205,23 +209,68 @@ class Shell:
             # GNU readline-style binding
             readline.parse_and_bind("tab: complete")
 
+
+        # readline.parse_and_bind("set show-all-if-ambiguous off")
+        # readline.set_completion_display_matches_hook(self.display_matches)
+
     def complete(self, string, state):
+        
+        if(string == ''):
+            return None
+        
+        if(state == 0):
+            self.tabCount +=1
+            self.completeFound = False
+
+        if(self.tabCount == 2):
+            print('\n' + "  ".join(self.doubleTabList))
+            self.doubleTabList = []
+            self.tabCount = 0
+            buffer = readline.get_line_buffer()
+            print("$ " + buffer, end="", flush=True)
+            return None
+        
+
+        if(self.completeFound):
+            print('\x07', end='', flush=True)
+            return None
 
         const_options = list(self.commandDict.keys()) + helpers.getAllExec(os.environ['PATH'].split(os.pathsep))
         const_options = list(dict.fromkeys(const_options))
-
         results = []
         for key in const_options:
             if string in key:
                 results.append(key)
-        
-        const_options = [option for option in const_options if string in option]
-        if(string == const_options[state][:-1]):
-            return const_options[state] + ' '
-        elif(len(results) == 1):
-            return results[-1] + ' '
-        else:
+
+
+        const_options = sorted([option for option in const_options if string in option])
+
+        if(state == 0):
+            if(len(results) == 1):
+                self.completeFound = True
+                return results[-1] + ' '
+            for i in range(len(results)):
+                if(string == results[i][:-1] and len(results[i]) > 2):
+                    self.completeFound = True
+                    return results[i] + ' '
+                
+        const_options = [x for x in const_options if x.startswith(string)]
+        if(len(const_options)-1>=state):
+            print('\x07', end='', flush=True)
+            self.doubleTabList = const_options
             return None
+
+        return None
+
+        
+    # def display_matches(self, substitution, matches, longest):
+    #     line = "  ".join(matches)
+    #     sys.stdout.write("\n" + line + "\n")
+
+    #     # Re-print prompt and current text (readline buffer)
+    #     buffer = readline.get_line_buffer()
+    #     sys.stdout.write("$ " + buffer)
+    #     sys.stdout.flush()
         
 
    #  --------------------------------------------------
