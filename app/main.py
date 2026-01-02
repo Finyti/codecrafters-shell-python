@@ -30,8 +30,8 @@ When no more bacwards slashed at the end,
 combine all lines together in a command
 object.
 
-
-
+1
+s
 """
 
 class Memory:
