@@ -10,6 +10,35 @@ import app.helpers as helpers
 import app.redirection as redirection
 
 
+"""
+TODO:
+1. Add command object (input is sepparated in preparation for execusion).
+Add support for ';' and && as separators between commands.
+Allow executing multiple commands per prompt. 
+Store each command separetly in a Comand object type.
+This lead to next objective:
+2. Add per-comand output handling.
+Input -> processing -> Commands -> execute = output -> command -> memory object
+Command object has a flag inputRedirection to indicate whether or not it
+should be 
+3. Add support for multiline:
+A \
+b \
+C \
+Can be done at the moment of input submision.
+When no more bacwards slashed at the end,
+combine all lines together in a command
+object.
+
+
+
+"""
+
+class Memory:
+    def __init__(self):
+        pass
+
+
 class Shell:
     
     def __init__(self):
@@ -26,12 +55,15 @@ class Shell:
         self.commandModificatorsDict = {'1>': redirection.redirect,
                                         '2>': redirection.redirect,
                                         '1>>': redirection.append,
-                                        '2>>': redirection.append}
+                                        '2>>': redirection.append,
+                                        '|': None}
 
         self.outputList = []
         self.errList = []
         self.outRedirectFlag = False
         self.errRedirectFlag = False
+
+        self.pipeActive = False
 
         self.completeFound = False
         self.tabCount = 0
@@ -119,6 +151,20 @@ class Shell:
             executableAndArgs = self.executePrep(command)
             if(executableAndArgs == ''):
                 continue
+            
+            # Problem, right now I handle outputs globaly. I do not support per-command output handling
+            # because multiple comands in one line are not supported. Because of that I handle redirections 
+            # as disablers for output. The solutions is pretty.. brute forcy and I want to add multi-comand support
+            # with ';'. Output must be an array of Memory type objects (to not just store, but support flags)
+
+            if(self.pipeActive):
+                output = subprocess.run(command, input=self.outputList[-1], capture_output = True)
+
+                stdout = output.stdout
+                stderr = output.stderr
+                self.addStdFeedback(stdout, stderr)
+                self.pipeActive = False
+                continue
 
             if(executableAndArgs[0] == 'exit'):
                 self.commandDict[executableAndArgs[0]](executableAndArgs[1])
@@ -138,21 +184,25 @@ class Shell:
                         self.commandDict[executableAndArgs[0]](executableAndArgs[1][0], self)
 
             elif(executableAndArgs[0] == '1>'):
-                redirection.redirect(self.outputList[0], executableAndArgs[1])
+                redirection.redirect(self.outputList[0].decode("utf-8"), executableAndArgs[1])
             elif(executableAndArgs[0] == '1>>'):
-                redirection.append(self.outputList[0], executableAndArgs[1])
+                redirection.append(self.outputList[0].decode("utf-8"), executableAndArgs[1])
             elif(executableAndArgs[0] == '2>'):
-                redirection.redirect(self.errList[0], executableAndArgs[1])
+                redirection.redirect(self.errList[0].decode("utf-8"), executableAndArgs[1])
             elif(executableAndArgs[0] == '2>>'):
-                redirection.append(self.errList[0], executableAndArgs[1])
-                
+                redirection.append(self.errList[0].decode("utf-8"), executableAndArgs[1])
+            
 
+
+                        
+            elif(executableAndArgs[0] == '|'):
+                self.pipeActive = True
 
             else:
                 output = subprocess.run(command, capture_output = True)
 
-                stdout = output.stdout.decode("utf-8")
-                stderr = output.stderr.decode("utf-8")
+                stdout = output.stdout
+                stderr = output.stderr
                 self.addStdFeedback(stdout, stderr)
 
         if(not self.outRedirectFlag):
@@ -165,11 +215,15 @@ class Shell:
     def addStdFeedback(self, output, err):
         # if(output!=''):
         #     print(output)
-        if(err!='' and not self.errRedirectFlag):
+        if(not isinstance(output, bytes)):
+            output = output.encode("utf-8")
+        if(not isinstance(err, bytes)):
+            err = err.encode("utf-8")
+        if(err.decode("utf-8")!='' and not self.errRedirectFlag):
             if(err[-1] != '\n'):
-                sys.stdout.write(err + '\n')
+                sys.stdout.write(err.decode("utf-8") + '\n')
             else:
-                sys.stdout.write(err)
+                sys.stdout.write(err.decode("utf-8"))
             # (Resets the loop instead of returning to wherever)
         self.outputList.append(output)
         self.errList.append(err)
@@ -178,14 +232,14 @@ class Shell:
         if(len(self.outputList) == 0):
             return
         for index, output in enumerate(self.outputList):
-            if(len(output) == 0):
+            if(len(output.decode("utf-8")) == 0):
                 return
             if(index == len(self.outputList)-1 and output[-1] == '\n'):
-                sys.stdout.write(output[0:-1])
+                sys.stdout.write(output.decode("utf-8")[0:-1])
             elif(index < len(self.outputList)-1 and output[-1] != '\n'):
-                sys.stdout.write(output + '\n')
+                sys.stdout.write(output.decode("utf-8") + '\n')
             else:
-                sys.stdout.write(output)
+                sys.stdout.write(output.decode("utf-8"))
         sys.stdout.write('\n')
 
 
@@ -196,32 +250,52 @@ class Shell:
     def readlineSet(self):
         readline.parse_and_bind('set editing-mode vi') 
         readline.set_completer(self.complete)
+
+        # Delims are needed to prevent to select autocomplete object.
+        # Default is '-', but many comands use it.
+        # I set it as ' ' (no need for spliting string)
         delims = readline.get_completer_delims()
         delims = delims.replace('-', '')
         readline.set_completer_delims(delims)
-        # readline.parse_and_bind('bind ^I rl_complete')
+
         # Detect libedit vs GNU readline
         doc = readline.__doc__ or ""
         if "libedit" in doc:
-            # libedit-style binding
+            # libedit-style binding (MacOS, BSD)
             readline.parse_and_bind("bind ^I rl_complete")
         else:
-            # GNU readline-style binding
+            # GNU readline-style binding (Most linux distrois)
             readline.parse_and_bind("tab: complete")
 
 
-        # readline.parse_and_bind("set show-all-if-ambiguous off")
-        # readline.set_completion_display_matches_hook(self.display_matches)
 
     def complete(self, string, state):
-        
+
+        # The readline calls complete on tab press untill it returns None, with state being +1 of previous call
+        # The idea is to return all autocomplete options through returns and then None.
+        # This list of options can then be printed when double tapping. 
+        # Sadly, because of codecrafters tester and my inability to modify default
+        # options printing I had to resolve to use complete as an event handler
+        # of tab press. Logic of func does not allow state to go over 2.
+        # That would allow default double tab behavior to occur
+
+
+        # Self expanitory 
         if(string == ''):
             return None
-        
+
+
         if(state == 0):
             self.tabCount +=1
             self.completeFound = False
 
+
+        # If the singular autocomplete option is chosen (state is 1 if the completeFound is True)
+        if(self.completeFound):
+            print('\x07', end='', flush=True)
+            return None
+        
+        # Manually lists all autocomplete options 
         if(self.tabCount == 2):
             print('\n' + "  ".join(self.doubleTabList))
             self.doubleTabList = []
@@ -231,9 +305,8 @@ class Shell:
             return None
         
 
-        if(self.completeFound):
-            print('\x07', end='', flush=True)
-            return None
+        # Const options is alphabetically sorted autocomplete options that start with the string
+        # Results is alphabetically autocomplete options that contain string
 
         const_options = list(self.commandDict.keys()) + helpers.getAllExec(os.environ['PATH'].split(os.pathsep))
         const_options = list(dict.fromkeys(const_options))
@@ -241,32 +314,31 @@ class Shell:
         for key in const_options:
             if string in key:
                 results.append(key)
-
-
+        results = sorted(results)
         const_options = sorted([option for option in const_options if string in option])
+        const_options = [x for x in const_options if x.startswith(string)]
 
         if(state == 0):
-            # in case there is only one autocomplete option
+            # In case there is only one autocomplete option
             if(len(results) == 1):
                 self.completeFound = True
                 self.tabCount = 0
                 return results[-1] + ' '
-            # I need to add LCP mechanic. We take a random word and start adding one letter from it to object of our autocomplete, 
-            # checking if all autocomplete options begin with that string. If yes, send the missing letters to our autocomplete
-            # object, without an additional space
-            LCP = True
+            
+            # I need to add LCP mechanic for partial completion if availible
+            is_LCP = True
             LCP_string = ''
-            temp_string = string
-            for char in const_options[0][len(temp_string):]:
-                temp_string += char
-                for element in results:
-                    if element.startswith(temp_string):
+            tester_string = string
+            for char in const_options[0][len(tester_string):]:
+                tester_string += char
+                for element in const_options:
+                    if element.startswith(tester_string):
                         continue
                     else:
-                        LCP = False
+                        is_LCP = False
                         break
-                if(LCP):
-                    LCP_string = temp_string
+                if(is_LCP):
+                    LCP_string = tester_string
             if(len(LCP_string) > len(string)):
                 self.completeFound = True
                 self.tabCount = 0
@@ -280,8 +352,8 @@ class Shell:
                     self.tabCount = 0
                     return results[i] + ' '
 
-                
-        const_options = [x for x in const_options if x.startswith(string)]
+        # In case there is no decision of autocompletion, prepare for printing all autocomplete options
+
         if(len(const_options)-1>=state):
             print('\x07', end='', flush=True)
             self.doubleTabList = const_options
@@ -290,14 +362,6 @@ class Shell:
         return None
 
         
-    # def display_matches(self, substitution, matches, longest):
-    #     line = "  ".join(matches)
-    #     sys.stdout.write("\n" + line + "\n")
-
-    #     # Re-print prompt and current text (readline buffer)
-    #     buffer = readline.get_line_buffer()
-    #     sys.stdout.write("$ " + buffer)
-    #     sys.stdout.flush()
         
 
    #  --------------------------------------------------
