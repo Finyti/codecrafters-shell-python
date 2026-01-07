@@ -3,9 +3,9 @@ import os
 
 class NavigationModule:
     def pwd(parent):
-        parent.addStdFeedback(parent.workingDirectory, "")
+        return str(parent.workingDirectory).encode("UTF-8")
 
-    def cd(newPath, parent):
+    def cd(parent, newPath):
         if('~' in newPath):
             if('/' in newPath):
                 newPath = os.getenv('HOME')+newPath[1:]

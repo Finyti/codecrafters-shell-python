@@ -1,5 +1,6 @@
 import sys
 import os
+import re
 
 def inCommandDict(command, commandDict):
     if(type(command) == list): 
@@ -74,30 +75,48 @@ def getAllExec(paths=None):
 
 
 def separateCommands(fullCommand, commandDict, commandModificatorsDict):
-    commandArray = []
-    for element in fullCommand:
-        try:
-            if(element not in commandModificatorsDict):
-                if commandArray[-1][0] == 'echo' or commandArray[-1][0] == 'type':
-                    commandArray[-1].append(element)
-                    continue
-            elif element in commandModificatorsDict:
-                commandArray.append([element])
-                continue
-        except:
-            pass
+    # commandArray = []
+    # for element in fullCommand:
+    #     try:
+    #         if(element not in commandModificatorsDict):
+    #             if commandArray[-1][0] == 'echo' or commandArray[-1][0] == 'type':
+    #                 commandArray[-1].append(element)
+    #                 continue
+    #         elif element in commandModificatorsDict:
+    #             commandArray.append([element])
+    #             continue
+    #     except:
+    #         pass
 
-        if inCommandDict(element, commandDict) or isExec(element):
-            commandArray.append([element])
+    #     if inCommandDict(element, commandDict) or isExec(element):
+    #         commandArray.append([element])
+    #     else:
+    #         successFlag = False
+    #         try:
+    #             if(len(commandArray) == 0):
+    #                 commandArray.append([element])
+    #                 successFlag = True
+    #         except:
+    #             pass
+    #         else:
+    #             if(not successFlag):
+    #                 commandArray[-1].append(element)
+    # return commandArray
+    separatedCommands = []
+    # commandArray = re.split('[;,&&]', ''.join(fullCommand))
+    for string in fullCommand:
+        if(len(separatedCommands) == 0):
+            separatedCommands.append([])
+        if(string == ';' or string == '&&'):
+            separatedCommands.append([])
         else:
-            successFlag = False
-            try:
-                if(len(commandArray) == 0):
-                    commandArray.append([element])
-                    successFlag = True
-            except:
-                pass
-            else:
-                if(not successFlag):
-                    commandArray[-1].append(element)
-    return commandArray
+            separatedCommands[-1].append(string)
+
+
+    return separatedCommands
+
+
+
+class SpecialSymbol(str):
+    def __init__(self, string):
+        self.specialStorage = string

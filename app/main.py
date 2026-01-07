@@ -9,18 +9,26 @@ import app.formatting as formatting
 import app.helpers as helpers
 import app.redirection as redirection
 
-
 """
 TODO:
 1. Add command object (input is sepparated in preparation for execusion).
 Add support for ';' and && as separators between commands.
 Allow executing multiple commands per prompt. 
 Store each command separetly in a Comand object type.
-This lead to next objective:
+
+
+Another thing is command separation. For example right now
+ls echo will print result of ls and empty echo. It should give
+errors about not having directory echo. The command separation'
+need to be per-comand with forst as a core, args evaluated differently.
+(command; args)
+
+
+This all lead to next objective:
 2. Add per-comand output handling.
 Input -> processing -> Commands -> execute = output -> command -> memory object
 Command object has a flag inputRedirection to indicate whether or not it
-should be 
+should be printed. 
 3. Add support for multiline:
 A \
 b \
@@ -30,27 +38,30 @@ When no more bacwards slashed at the end,
 combine all lines together in a command
 object.
 
-1
-s
+
 """
+
 
 class Memory:
     def __init__(self):
         pass
-
+    def store(self):
+        pass
+    def load(self):
+        pass
 
 class Shell:
-    
+
     def __init__(self):
         self.workingDirectory = os.path.abspath("")
         self.userInput = ''
 
-        self.commandDict = {'exit': self.exitFunc,
-            'echo': self.echo,
-            'type': self.typeOfArgument,
-            'execute': self.execute,
-            'pwd': navigation.NavigationModule.pwd,
-            'cd': navigation.NavigationModule.cd}
+        self.commandDict = {'exit': self.Command.exitFunc,
+            'echo': self.Command.echo,
+            'type': self.Command.typeOfArgument,
+            # 'execute': self.execute,
+            'pwd': self.Command.pwd,
+            'cd': self.Command.cd}
         
         self.commandModificatorsDict = {'1>': redirection.redirect,
                                         '2>': redirection.redirect,
@@ -68,145 +79,295 @@ class Shell:
         self.completeFound = False
         self.tabCount = 0
         self.doubleTabList = []
-
         
-   #  --------------------------------------------------
+    class Command:
+        def __init__(self, shell, command, isSub=False):
+            self.shell = shell
+            # command must be list
+            self.isSub = isSub
+            self.input = None
+
+            self.fullCommand = command
+
+            self.redirectionFlag = False
+            self.redirectionSymbol = ''
+            self.redirectionTarget = ''
+            
+            self.subCommands = []
+
+            self.bytesOutput = None
+            self.strOutput = None
+            self.strErr = None
+
+
+            if('|' in self.fullCommand):
+                if any(True for x in self.fullCommand if x == '|' and type(x) == helpers.SpecialSymbol):
+                    self.createSubdivision()
+
+            fileRedirectors = list(self.shell.commandModificatorsDict.keys()).copy()
+            fileRedirectors.remove("|")
+            if(any(True for x in fileRedirectors if x in self.fullCommand)):
+                self.cleanRedirects(fileRedirectors)
+
+            # self.printSubdivisions()
+
+
+        def __str__(self):
+            return (f'fullCommand: {self.fullCommand} redirectionFlag: {self.redirectionFlag} redirectionSymbol: {self.redirectionSymbol} redirectionTarget: {self.redirectionTarget} isSub: {self.isSub}')
+        
+        def setFullCommand(self, newCommand):
+            self.fullCommand = newCommand
+        def getFullCommand(self):
+            return self.fullCommand
+
+        def toggleRedirection(self):
+            self.redirectionFlag = not self.redirectionFlag
+
+        def createSubdivision(self):
+            '''
+                Split comand into subcomands based on |
+            '''
+            cutList = []
+            for el in self.fullCommand:
+                if len(cutList) == 0:
+                    cutList.append([])
+                if(el == '|' and type(el) == helpers.SpecialSymbol):
+                    cutList.append([])
+                    continue
+                cutList[-1].append(el)
+            for index, el in enumerate(cutList):
+                self.subCommands.append(self.shell.Command(self.shell, el, True))
+                if(len(cutList)-1>index):
+                    if(self.subCommands[-1].redirectionFlag == False):
+                        self.subCommands[-1].redirectionFlag = True
+                        self.subCommands[-1].redirectionSymbol = '|'
+                    
+        def printSubdivisions(self):
+            if(len(self.subCommands) == 0):
+                return
+            for subComm in self.subCommands:
+                print(subComm)
+        def cleanRedirects(self, fileRedirectors):
+            '''
+            remove redirect flags from command and set right redirect symbol, target
+
+            '''
+
+            if(len(self.subCommands) > 0):
+                return
+            symbol = ''
+            i = 0
+            while(i < len(self.fullCommand)):
+                command = self.fullCommand
+                if(command[i] in fileRedirectors and type(command[i]) == helpers.SpecialSymbol):
+                    symbol = command[i]
+                    self.fullCommand.pop(i)
+
+                    if(len(self.fullCommand)-1<i):
+                        break
+                    self.redirectionTarget = command[i]
+                    self.fullCommand.pop(i)            # indexing shifted by one, so again removed at i
+                    i = i-1
+                i += 1
+
+
+            self.redirectionFlag = True
+            self.redirectionSymbol = str(symbol)
+
+
+        def updateStd(self, stdObject):
+            self.bytesOutput = stdObject
+            self.strOutput = self.bytesOutput.stdout
+            self.strOutput = self.bytesOutput.stderr
+
+#  --------------------------------------------------
 #    SIMPLE BUILTINS
 
-    def exitFunc(self, exitStatus):
-        if(len(exitStatus) == 0 or int(exitStatus[0]) not in (0, 1)):
-            exit(0)
-        exit(int(exitStatus[0])) 
+        def exitFunc(self, exitStatus = 0):
+            if(len(exitStatus) == 0 or int(exitStatus[0]) not in (0, 1)):
+                exit(0)
+            exit(int(exitStatus[0])) 
 
-    def echo(self, text):
-        self.addStdFeedback(' '.join(text), "")
-        return
+        def echo(self, text):
+            # self.addStdFeedback(' '.join(text), "")
+            output = subprocess.CompletedProcess(text, 0, str(' '.join(text)).encode("UTF-8"), ''.encode("UTF-8"))
+            return output
 
-    def typeOfArgument(self, commands):
-        """
-        Accepts two variables. \n
-        'command' - command to check \n
-        'commandDict' - Dictionary with all builtin commands \n \n
+        def typeOfArgument(self, commands):
+            """
+            Accepts two variables. \n
+            'command' - command to check \n
+            'commandDict' - Dictionary with all builtin commands \n \n
 
-        If command is an executable, returns a touple with [0] being 'command' name and [1] being valid path \n
-        or None in any other case
-        """
-        # Check if command is a builtin functions
-        for command in commands:
-            if(helpers.inCommandDict(command, self.commandDict)):
-                # print(f'{command} is a shell builtin')
-                self.addStdFeedback(f'{command} is a shell builtin', "")
-                continue
-            
-            # If not builtin, check if command is a an executable accesible in any of the locations in PATH
-            validExec = helpers.getExec(command)
-            if(validExec != None):
-                # print(f'{command} is {validExec[1]}/{command}')
-                self.addStdFeedback(f'{command} is {validExec[1]}/{command}', "")
-                continue
-            
-            self.addStdFeedback("", f'{command}: not found')
+            If command is an executable, returns a touple with [0] being 'command' name and [1] being valid path \n
+            or None in any other case
+            """
+            # Check if command is a builtin functions
+            output = subprocess.CompletedProcess(commands, 0, ''.encode("UTF-8")), ''.encode("UTF-8")
+            for command in commands:
+                if(helpers.inCommandDict(command, self.commandDict)):
+                    # print(f'{command} is a shell builtin')
+                    output.stdout = (output.stdout.decode("UTF-8") + "\n" + str(f'{command} is a shell builtin')).encode("UTF-8")
+                    continue
+                
+                # If not builtin, check if command is a an executable accesible in any of the locations in PATH
+                validExec = helpers.getExec(command)
+                if(validExec != None):
+                    # print(f'{command} is {validExec[1]}/{command}')
+                    output.stdout = (output.stdout.decode("UTF-8") + "\n" + str(f'{command} is {validExec[1]}/{command}')).encode("UTF-8")
+                    continue
+                
+                output.stderr = (output.stderr.decode("UTF-8") + "\n" + str(f'{command}: not found')).encode("UTF-8")
+            return output
+
+        def pwd(self, command):
+            output = subprocess.CompletedProcess(command, 0, str(self.shell.workingDirectory).encode("UTF-8"), ''.encode("UTF-8"))
+            return output
+        def cd(self, command):
+            output = subprocess.CompletedProcess(command, 0, ''.encode("UTF-8"), ''.encode("UTF-8"))
+            if(len(command) > 1):
+                output.stderr = 'cd: too many arguments'.encode("UTF-8")
+            else:
+                navigation.NavigationModule.cd(self.shell, "".join(command))
+            return output
+
+#  --------------------------------------------------
+#    COMMAND EXECUTION
+
+        def runBuiltin(self, fullCommand, input=None, capture_output = True):
+            # print("Execute builtin")
+            output = None
+            if(input!=None):
+                output = self.shell.commandDict(fullCommand[0])(input)
+            else:
+                if(len(fullCommand) > 1):
+                    output = self.shell.commandDict[fullCommand[0]](self, fullCommand[1:])
+                else:
+                    output = self.shell.commandDict[fullCommand[0]](self, '')
+            if(capture_output == True):
+                return output
+
+        def run(self, fullCommand, input = None):
+            output = None
+            if(helpers.inCommandDict(fullCommand[0], self.shell.commandDict)):
+                if(input == None):
+                    output = self.runBuiltin(fullCommand, capture_output = True)
+                else:
+                    output = self.runBuiltin(fullCommand, input=input, capture_output = True)
+            elif(helpers.isExec(fullCommand[0])):
+                if(input == None):
+                    output = subprocess.run(fullCommand, cwd=self.shell.workingDirectory, capture_output = True)
+                else:
+                    output = subprocess.run(fullCommand, cwd=self.shell.workingDirectory, input=input, capture_output = True)
+            return output
+
+        def executeCommand(self):
+
+            # TODO add back the support for '\n' and "\n"
+            # TODO print all results (outputs and errors)
+            # TODO commit and merge with main. Test
+
+            if(len(self.subCommands) > 0):
+                for i, subCommand in enumerate(self.subCommands):
+                    if(not helpers.inCommandDict(subCommand.fullCommand[0], self.shell.commandDict) and
+                       not helpers.isExec(subCommand.fullCommand[0])):
+                        sys.stdout.write(f'{' '.join(self.fullCommand)}: command not found' + '\n')
+                    else:
+                        output = None
+                        
+                        output = self.run(subCommand.fullCommand, subCommand.input)
+
+                        subCommand.bytesOutput = output
+                        subCommand.strErr = output.stderr.decode("UTF-8")
+                        subCommand.strOutput = output.stdout.decode("UTF-8")
+
+                        # print(subCommand.fullCommand, subCommand.strOutput)
+
+                        
+                        if(subCommand.redirectionFlag == True):
+                            fileRedirectors = list(self.shell.commandModificatorsDict.keys()).copy()
+                            fileRedirectors.remove("|")
+                            if(subCommand.redirectionSymbol in fileRedirectors):
+                                # TODO implemet redirections
+                                if(subCommand.redirectionSymbol == '1>'):
+                                    redirection.redirect(subCommand.strOutput, subCommand.redirectionTarget)
+                                elif(subCommand.redirectionSymbol == '2>'):
+                                    redirection.redirect(subCommand.strErr, subCommand.redirectionTarget)
+                                elif(subCommand.redirectionSymbol == '1>>'):
+                                    redirection.append(subCommand.strOutput, subCommand.redirectionTarget)
+                                elif(subCommand.redirectionSymbol == '2>>'):
+                                    redirection.append(subCommand.strErr, subCommand.redirectionTarget)
+                                subCommand.bytesOutput = None
+                                subCommand.strErr = None
+                                subCommand.strOutput = None
+                            elif(subCommand.redirectionSymbol == '|'):
+                                if(len(self.subCommands) - 1 > i):
+                                    self.subCommands[i+1].input = subCommand.bytesOutput.stdout
+                                subCommand.bytesOutput = None
+                                subCommand.strErr = None
+                                subCommand.strOutput = None
+                        elif(len(self.subCommands) - 1 == i and subCommand.redirectionFlag == False):
+                            self.bytesOutput = subCommand.bytesOutput
+                            self.strErr = subCommand.strErr
+                            self.strOutput = subCommand.strOutput
+
+            else:
+                if(not helpers.inCommandDict(self.fullCommand[0], self.shell.commandDict) and
+                not helpers.isExec(self.fullCommand[0])):
+                    sys.stdout.write(f'{' '.join(self.fullCommand)}: command not found' + '\n')
+                else:
+                    output = self.run(self.fullCommand, self.input)
+
+                    self.bytesOutput = output
+                    self.strErr = output.stderr.decode("UTF-8")
+                    self.strOutput = output.stdout.decode("UTF-8")
+
+                    if(self.redirectionFlag == True):
+                        # TODO implemet redirections
+                        if(self.redirectionSymbol == '1>'):
+                            print(self.redirectionTarget)
+                            redirection.redirect(self.strOutput, self.redirectionTarget)
+                        elif(self.redirectionSymbol == '2>'):
+                            redirection.redirect(self.strErr, self.redirectionTarget)
+                        elif(self.redirectionSymbol == '1>>'):
+                            redirection.append(self.strOutput, self.redirectionTarget)
+                        elif(self.redirectionSymbol == '2>>'):
+                            redirection.append(self.strErr, self.redirectionTarget)
+                        self.bytesOutput = None
+                        self.strErr = None
+                        self.strOutput = None
 
 
 
     #  --------------------------------------------------
 #    DEALS WITH EXECUTABLES
 
-    def executePrep(self, fullCommand):
+    def createCommandObjects(self, separatedCommands):
+        commandObjList = []
+        for command in  separatedCommands:
+            commandObjList.append(self.Command(self, command))
 
-        untrimedExecutable = fullCommand[0]
-        args = fullCommand[1:]
-        path = ''
-        command = ''
-        if(untrimedExecutable[0] == '.'):
-            untrimedExecutable = untrimedExecutable[1:]
+        return commandObjList
 
-        # if givven command preceeded by full path
-        if(os.path.sep in untrimedExecutable):
-            path = untrimedExecutable.split(os.path.sep)[:-1]
-            path = os.path.sep.join(path)
-            command = untrimedExecutable.split(os.path.sep)[-1]
-        # if givven only the command name
-        else:
-            command = untrimedExecutable
-            validExec = helpers.getExec(command)
-            if(validExec != None):
-                path = validExec[1]
-        # First format the string (quotes compatability) for passing the command and the arguments, then execute the whole command
-        if((command in self.commandDict or command in self.commandModificatorsDict)):
 
-            argsString = args
-            return command,argsString
-        if(path != '' and helpers.isExec(command, path)):
-            argsString = args
-            return command,argsString
-        else:
-            sys.stdout.write(f'{command}: command not found' + '\n')
-            return ""
 
     def execute(self, fullCommand):
+        # commandList = helpers.separateCommands(fullCommand, self.commandDict, self.commandModificatorsDict)
         commandList = helpers.separateCommands(fullCommand, self.commandDict, self.commandModificatorsDict)
 
-        for command in commandList:
-            executableAndArgs = self.executePrep(command)
-            if(executableAndArgs == ''):
-                continue
-            
-            # Problem, right now I handle outputs globaly. I do not support per-command output handling
-            # because multiple comands in one line are not supported. Because of that I handle redirections 
-            # as disablers for output. The solutions is pretty.. brute forcy and I want to add multi-comand support
-            # with ';'. Output must be an array of Memory type objects (to not just store, but support flags)
+        # print(f'execute: {commandList}')
+        commandObjectsList = self.createCommandObjects(commandList)
 
-            if(self.pipeActive):
-                output = subprocess.run(command, input=self.outputList[-1], capture_output = True)
-
-                stdout = output.stdout
-                stderr = output.stderr
-                self.addStdFeedback(stdout, stderr)
-                self.pipeActive = False
-                continue
-
-            if(executableAndArgs[0] == 'exit'):
-                self.commandDict[executableAndArgs[0]](executableAndArgs[1])
-
-            elif(executableAndArgs[0] == 'echo'):
-                self.commandDict[executableAndArgs[0]](executableAndArgs[1])
-
-            elif(executableAndArgs[0] == 'type'):
-                self.commandDict[executableAndArgs[0]](executableAndArgs[1])
-
-            elif(executableAndArgs[0] == 'pwd'):
-                self.commandDict[executableAndArgs[0]](self)
-
-            elif(executableAndArgs[0] == 'cd'):
-                if(len(executableAndArgs) > 1):
-                    if(len(executableAndArgs[1]) > 0):
-                        self.commandDict[executableAndArgs[0]](executableAndArgs[1][0], self)
-
-            elif(executableAndArgs[0] == '1>'):
-                redirection.redirect(self.outputList[0].decode("utf-8"), executableAndArgs[1])
-            elif(executableAndArgs[0] == '1>>'):
-                redirection.append(self.outputList[0].decode("utf-8"), executableAndArgs[1])
-            elif(executableAndArgs[0] == '2>'):
-                redirection.redirect(self.errList[0].decode("utf-8"), executableAndArgs[1])
-            elif(executableAndArgs[0] == '2>>'):
-                redirection.append(self.errList[0].decode("utf-8"), executableAndArgs[1])
-            
-
-
-                        
-            elif(executableAndArgs[0] == '|'):
-                self.pipeActive = True
-
+        for command in commandObjectsList:
+            command.executeCommand()
+        for command in commandObjectsList:
+            if(command.strErr != ''):
+                sys.stdout.write(command.strErr  + '\n')
             else:
-                output = subprocess.run(command, capture_output = True)
+                sys.stdout.write(command.strOutput + '\n')
 
-                stdout = output.stdout
-                stderr = output.stderr
-                self.addStdFeedback(stdout, stderr)
 
-        if(not self.outRedirectFlag):
-            self.printStdOut()
+
 
 
    #  --------------------------------------------------

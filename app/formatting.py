@@ -1,5 +1,6 @@
 import sys
 import os
+import app.helpers as helpers
 
 def formatInput(userInput):
 
@@ -24,7 +25,7 @@ def formatInput(userInput):
     literalIteration = False
     for index, char in enumerate(userInput):
         # The order of if's here is important. Earlier if's catch certain cases which should not go through and to later if's
-
+        # print(char, formattedInput)
         # For cases when \ interprets next chat literally of some symbol 
         if(literalIteration == True):
                 literalIteration = False
@@ -52,7 +53,24 @@ def formatInput(userInput):
             formattedInput[wordIndex] = str(formattedInput[wordIndex]) + "\\"
             continue
 
-            
+        # if(char == 'n' and any([singleQuoteMarker, doubleQuoteMarker])):
+
+        #     isNewline = False
+        #     backslashCount = 0
+        #     for char in reversed(formattedInput[wordIndex]):
+        #         if(char == '\\'):
+        #             backslashCount += 1
+        #         else:
+        #             break
+        #     print(backslashCount)
+        #     if(backslashCount > 0 and backslashCount % 2 != 0):
+        #         isNewline = True
+        #     if(isNewline):
+        #         print('\\'*backslashCount*2)
+
+        #         formattedInput[wordIndex].replace(str('\\'*backslashCount*2), '\n')
+
+
         # Support for quotes
         if char == "'" and not doubleQuoteMarker:
             singleQuoteMarker = not singleQuoteMarker
@@ -71,7 +89,15 @@ def formatInput(userInput):
         if(char == ">" and not singleQuoteMarker and not doubleQuoteMarker):
             if(index-1>=0):
                 if(userInput[index-1] not in '123456789>'):
-                    formattedInput[wordIndex] = str(formattedInput[wordIndex]) + "1"
+                    formattedInput[wordIndex] = helpers.SpecialSymbol(str(formattedInput[wordIndex]) + "1")
+                    continue
+            formattedInput[wordIndex] = helpers.SpecialSymbol(str(formattedInput[wordIndex]+char))
+            continue
+        if(char == "|" and not singleQuoteMarker and not doubleQuoteMarker):
+            formattedInput.append(helpers.SpecialSymbol(str(char)))
+            wordIndex += 1
+            continue
+
 
         # Starts new argument
         if char == " " and not singleQuoteMarker and not doubleQuoteMarker:
@@ -81,6 +107,11 @@ def formatInput(userInput):
                 continue
             else:
                 continue
+        elif char == ";" and not singleQuoteMarker and not doubleQuoteMarker:
+            formattedInput.append(';')
+            wordIndex += 1
+            continue
+
 
 
         # If nothing else was ticked, add a char to arg
@@ -91,6 +122,7 @@ def formatInput(userInput):
     for arg in formattedInput:
         if(arg == ''):
             formattedInput.remove('')
+
 
 
     return formattedInput
